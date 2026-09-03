@@ -2,17 +2,26 @@
 
 ## Considerations & Assumptions
 - Duplicate names in the screenshot are on purpose (not a design mistake) -> system can allow it
-- High throughput will be handled on best-effort, simplicity will be favored for this take home, for things like:
-    - auth (carrying tenantId for implementatino simplicity in favor of auth consistency)
+- High throughput will be handled on a best-effort basis; simplicity will be favored for this take-home for things like:
+    - auth (carrying `tenantId` for implementation simplicity in favor of auth consistency)
     - pagination
     - filtering
 - Version numbers can be arbitrary
+- Authentication uses a pre-generated demo JWT with fixed `userId` and `tenantId` claims
+    - The API validates the JWT using a development secret provided through an environment variable
+    - Login, token issuance, and user/tenant management are out of scope for the first iteration
+    - If time permits, a `User` model and proper `/login` endpoint will be added
+    - The tenant is always taken from the validated JWT and cannot be overridden by the client
 - Filtering is limited to (what i think) would be what is useful here:
     - Searching on the service name and description
     - Version count per service
     - Latest version created date range
     - Creation date range
-- the number next to "versions" in the screenshot represents the total amount of versions
+- The number next to "versions" in the screenshot represents the total number of versions
+- No roles or permissions will be enforced aside from scoping requests to the authenticated user's `tenantId`
+- Pagination is one-based; `page` defaults to 1 and `perPage` defaults to 10, with a maximum of 100
+- `next` is the relative URL for the next page, or `null` on the final page
+- Sorting is one field at a time
 
 ## Entities
 
@@ -26,8 +35,7 @@
 
 ### Version
 - id: integer | primary key | autoincrement
-- tenantId: integer | index
-- serviceId: integer | index
+- serviceId: integer | foreign key to Service | index
 - version: string
 - notes: string | nullable
 - createdAt: timestamp | index
@@ -64,9 +72,10 @@ GET /services/:serviceId/versions
 - Params:
     - page: integer
     - perPage: integer
+- Default ordering: `createdAt DESC`, then `id DESC`
 - Body:
     - data: Version[]
-    - next: string
+    - next: string | null
 
 **Error Responses:**
 - 400: invalid query params
@@ -87,21 +96,25 @@ GET /services
 - Params:
     - page: integer
     - perPage: integer
-    - sortBy: string
+    - sortBy: `name` | `createdAt` | `versionCount`
+    - sortOrder: `asc` | `desc`
     - search: string
-    - totalVersionFrom: int
-    - totalVersionTo: int
+    - versionCountFrom: int
+    - versionCountTo: int
     - createdAtFrom: string (iso timestamp)
     - createdAtTo: string (iso timestamp)
     - latestVersionCreatedAtFrom: string (iso timestamp)
     - latestVersionCreatedAtTo: string (iso timestamp)
+- Default ordering: `createdAt DESC`, then `id DESC`
+- All sorting uses `id` as a final tie-breaker
+- `versionCount` is calculated from the Version records rather than stored on Service
 - Body:
     - data: ListService[]
         - id
         - name
         - description
         - versionCount
-    - next: string
+    - next: string | null
 
 **Error Responses:**
 - 400: invalid query params

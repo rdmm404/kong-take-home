@@ -13,11 +13,13 @@
     - If time permits, a `User` model and proper `/login` endpoint will be added
     - The tenant is always taken from the validated JWT and cannot be overridden by the client
 - Filtering is limited to (what i think) would be what is useful here:
-    - Searching on the service name and description
+    - Searching on the service name and description using case-insensitive substring matching
     - Version count per service
     - Latest version created date range
     - Creation date range
 - The number next to "versions" in the screenshot represents the total number of versions
+- The `0–4 of 4` pagination label conflicts with the number of visible cards; the API will return the total matching elements and total pages so the client has enough information
+- Services without versions do not match a latest-version created date filter
 - No roles or permissions will be enforced aside from scoping requests to the authenticated user's `tenantId`
 - Pagination is one-based; `page` defaults to 1 and `perPage` defaults to 10, with a maximum of 100
 - `next` is the relative URL for the next page, or `null` on the final page
@@ -36,7 +38,7 @@
 ### Version
 - id: integer | primary key | autoincrement
 - serviceId: integer | foreign key to Service | index
-- version: string
+- version: string | unique per service
 - notes: string | nullable
 - createdAt: timestamp | index
 - updatedAt: timestamp
@@ -75,6 +77,8 @@ GET /services/:serviceId/versions
 - Default ordering: `createdAt DESC`, then `id DESC`
 - Body:
     - data: Version[]
+    - total: integer
+    - totalPages: integer
     - next: string | null
 
 **Error Responses:**
@@ -96,8 +100,7 @@ GET /services
 - Params:
     - page: integer
     - perPage: integer
-    - sortBy: `name` | `createdAt` | `versionCount`
-    - sortOrder: `asc` | `desc`
+    - sortBy: `name` | `createdAt` | `versionCount`, optionally prefixed with `-` for descending order (for example, `-name`)
     - search: string
     - versionCountFrom: int
     - versionCountTo: int
@@ -114,6 +117,8 @@ GET /services
         - name
         - description
         - versionCount
+    - total: integer
+    - totalPages: integer
     - next: string | null
 
 **Error Responses:**

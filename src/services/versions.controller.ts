@@ -1,8 +1,14 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -16,7 +22,9 @@ import {
   createPaginatedResponse,
   pageToOffsetPagination,
 } from '../common/pagination/pagination';
+import { CreateVersionDto } from './dto/requests/create-version.dto';
 import { ListVersionsQueryDto } from './dto/requests/list-versions-query.dto';
+import { UpdateVersionDto } from './dto/requests/update-version.dto';
 import { VersionDto } from './dto/responses/version.dto';
 import { VersionsService } from './versions.service';
 
@@ -24,6 +32,15 @@ import { VersionsService } from './versions.service';
 @Controller('services/:serviceId/versions')
 export class VersionsController {
   constructor(private readonly versionsService: VersionsService) {}
+
+  @Post()
+  createVersion(
+    @Param('serviceId', ParseIntPipe) serviceId: number,
+    @Body() body: CreateVersionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<VersionDto> {
+    return this.versionsService.createVersion(serviceId, body, user.tenantId);
+  }
 
   @Get()
   async listVersions(
@@ -40,5 +57,34 @@ export class VersionsController {
     );
 
     return createPaginatedResponse(result, pagination, request.originalUrl);
+  }
+
+  @Patch(':versionId')
+  updateVersion(
+    @Param('serviceId', ParseIntPipe) serviceId: number,
+    @Param('versionId', ParseIntPipe) versionId: number,
+    @Body() body: UpdateVersionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<VersionDto> {
+    return this.versionsService.updateVersion(
+      serviceId,
+      versionId,
+      body,
+      user.tenantId,
+    );
+  }
+
+  @Delete(':versionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteVersion(
+    @Param('serviceId', ParseIntPipe) serviceId: number,
+    @Param('versionId', ParseIntPipe) versionId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    return this.versionsService.deleteVersion(
+      serviceId,
+      versionId,
+      user.tenantId,
+    );
   }
 }

@@ -119,6 +119,65 @@ GET /services/:serviceId
 - 401: Auth token not provided or invalid
 - 404: Service not found, or belongs to another tenant
 
+### Create Service Version
+
+**Path:**
+POST /services/:serviceId/versions
+
+**Headers:**
+- Authorization: bearer token, JWT (carries userId and tenantId)
+
+**Request Body:**
+- version: string, required, maximum 255 characters
+- notes: string | null, optional
+
+**Success Response:**
+- Status: 201 Created
+- Body: Version
+
+**Error Responses:**
+- 400: invalid request body
+- 401: Auth token not provided or invalid
+- 404: Service not found, or belongs to another tenant
+- 409: Version already exists for the service
+
+### Update Service Version
+
+**Path:**
+PATCH /services/:serviceId/versions/:versionId
+
+**Headers:**
+- Authorization: bearer token, JWT (carries userId and tenantId)
+
+**Request Body:**
+- version: string, optional, maximum 255 characters
+- notes: string | null, optional; null clears the notes
+
+**Success Response:**
+- Status: 200 OK
+- Body: Version
+
+**Error Responses:**
+- 400: invalid request body
+- 401: Auth token not provided or invalid
+- 404: Service or version not found, or belongs to another tenant
+- 409: Version already exists for the service
+
+### Delete Service Version
+
+**Path:**
+DELETE /services/:serviceId/versions/:versionId
+
+**Headers:**
+- Authorization: bearer token, JWT (carries userId and tenantId)
+
+**Success Response:**
+- Status: 204 No Content
+
+**Error Responses:**
+- 401: Auth token not provided or invalid
+- 404: Service or version not found, or belongs to another tenant
+
 ### Service Version List
 
 **Path:**
@@ -207,9 +266,11 @@ src/
     ├── dto/
     │   ├── requests/
     │   │   ├── create-service.dto.ts
+    │   │   ├── create-version.dto.ts
     │   │   ├── list-services-query.dto.ts
     │   │   ├── list-versions-query.dto.ts
-    │   │   └── update-service.dto.ts
+    │   │   ├── update-service.dto.ts
+    │   │   └── update-version.dto.ts
     │   └── responses/
     │       ├── service-detail.dto.ts
     │       ├── service-list-item.dto.ts
@@ -246,7 +307,7 @@ The top-level `database/` folder contains the migration CLI entry point and gene
 
 ### Services
 
-The `services/` folder contains the entities, DTOs, controllers, and logic for services and versions. Versions use a separate controller and service so future create, update, and delete operations have a clear home. They remain in `ServicesModule` because clients only access versions through a service.
+The `services/` folder contains the entities, DTOs, controllers, and logic for services and versions. Versions use a separate controller and service so their list, create, update, and delete operations have a clear home. They remain in `ServicesModule` because clients only access versions through a service.
 
 `ServicesService` and `VersionsService` use TypeORM repositories directly. We won't add repository wrappers unless query logic starts repeating. The controllers translate API pages into offsets and limits, then build pagination metadata and links with shared helpers. The services only receive the database pagination values. The service list query calculates version counts and latest-version dates in the database instead of loading versions one service at a time. Every applicable query receives a tenant ID explicitly.
 

@@ -6,6 +6,7 @@ import {
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { QueryFailedError, Repository } from 'typeorm';
+import { POSTGRES_ERROR_CODE } from '../common/database/postgres-error-code';
 import { Service } from './entities/service.entity';
 import { ListServicesQuery } from './queries/list-services.query';
 import { ServicesService } from './services.service';
@@ -250,7 +251,9 @@ describe('ServicesService', () => {
         updatedAt: new Date(),
         versions: [],
       };
-      const driverError = Object.assign(new Error(), { code: '23503' });
+      const driverError = Object.assign(new Error(), {
+        code: POSTGRES_ERROR_CODE.FOREIGN_KEY_VIOLATION,
+      });
       const error = new QueryFailedError('', [], driverError);
       serviceRepository.findOne.mockResolvedValue(service);
       serviceRepository.remove.mockRejectedValue(error);

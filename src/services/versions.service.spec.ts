@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { QueryFailedError, Repository } from 'typeorm';
+import { POSTGRES_ERROR_CODE } from '../common/database/postgres-error-code';
 import { Service } from './entities/service.entity';
 import { Version } from './entities/version.entity';
 import { ServicesService } from './services.service';
@@ -88,7 +89,9 @@ describe('VersionsService', () => {
         updatedAt: new Date(),
         service: {} as Service,
       };
-      const driverError = Object.assign(new Error(), { code: '23505' });
+      const driverError = Object.assign(new Error(), {
+        code: POSTGRES_ERROR_CODE.UNIQUE_VIOLATION,
+      });
       const error = new QueryFailedError('', [], driverError);
       versionRepository.create.mockReturnValue(version);
       versionRepository.save.mockRejectedValue(error);

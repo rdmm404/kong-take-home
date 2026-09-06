@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
+import { POSTGRES_ERROR_CODE } from '../common/database/postgres-error-code';
 import {
   OffsetPagination,
   PaginatedResult,
@@ -103,7 +104,8 @@ export class ServicesService {
     } catch (error) {
       if (
         error instanceof QueryFailedError &&
-        (error.driverError as { code?: string }).code === '23503'
+        (error.driverError as { code?: string }).code ===
+          POSTGRES_ERROR_CODE.FOREIGN_KEY_VIOLATION
       ) {
         throw new ConflictException(
           `Service ${serviceId} cannot be deleted while it has versions`,

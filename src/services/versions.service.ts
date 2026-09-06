@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
+import { POSTGRES_ERROR_CODE } from '../common/database/postgres-error-code';
 import {
   OffsetPagination,
   PaginatedResult,
@@ -110,7 +111,8 @@ export class VersionsService {
     } catch (error) {
       if (
         error instanceof QueryFailedError &&
-        (error.driverError as { code?: string }).code === '23505'
+        (error.driverError as { code?: string }).code ===
+          POSTGRES_ERROR_CODE.UNIQUE_VIOLATION
       ) {
         throw new ConflictException(
           `Version ${version.version} already exists for this service`,

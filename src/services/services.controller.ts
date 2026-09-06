@@ -1,8 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
   ParseIntPipe,
+  Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -16,7 +19,9 @@ import {
   createPaginatedResponse,
   pageToOffsetPagination,
 } from '../common/pagination/pagination';
+import { CreateServiceDto } from './dto/requests/create-service.dto';
 import { ListServicesQueryDto } from './dto/requests/list-services-query.dto';
+import { UpdateServiceDto } from './dto/requests/update-service.dto';
 import { ServiceDetailDto } from './dto/responses/service-detail.dto';
 import { ServiceListItemDto } from './dto/responses/service-list-item.dto';
 import { ServicesService } from './services.service';
@@ -25,6 +30,14 @@ import { ServicesService } from './services.service';
 @Controller('services')
 export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}
+
+  @Post()
+  createService(
+    @Body() body: CreateServiceDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ServiceDetailDto> {
+    return this.servicesService.createService(body, user.tenantId);
+  }
 
   @Get()
   async listServices(
@@ -49,5 +62,14 @@ export class ServicesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ServiceDetailDto> {
     return this.servicesService.getService(serviceId, user.tenantId);
+  }
+
+  @Patch(':serviceId')
+  updateService(
+    @Param('serviceId', ParseIntPipe) serviceId: number,
+    @Body() body: UpdateServiceDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ServiceDetailDto> {
+    return this.servicesService.updateService(serviceId, body, user.tenantId);
   }
 }

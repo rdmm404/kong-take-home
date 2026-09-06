@@ -8,12 +8,16 @@ import { ServicesService } from './services.service';
 
 describe('ServicesService', () => {
   let servicesService: ServicesService;
-  let serviceRepository: jest.Mocked<Pick<Repository<Service>, 'findOne'>>;
+  let serviceRepository: jest.Mocked<
+    Pick<Repository<Service>, 'create' | 'findOne' | 'save'>
+  >;
   let listServicesQuery: jest.Mocked<Pick<ListServicesQuery, 'execute'>>;
 
   beforeEach(async () => {
     serviceRepository = {
+      create: jest.fn(),
       findOne: jest.fn(),
+      save: jest.fn(),
     };
     listServicesQuery = {
       execute: jest.fn(),
@@ -34,6 +38,39 @@ describe('ServicesService', () => {
     }).compile();
 
     servicesService = module.get(ServicesService);
+  });
+
+  describe('createService', () => {
+    it('creates a service in the authenticated tenant', async () => {
+      const createdAt = new Date('2024-01-10T09:00:00.000Z');
+      const service = {
+        id: 1,
+        tenantId: 2,
+        name: 'Payments API',
+        description: null,
+        createdAt,
+        updatedAt: createdAt,
+        versions: [],
+      };
+      serviceRepository.create.mockReturnValue(service);
+      serviceRepository.save.mockResolvedValue(service);
+
+      await expect(
+        servicesService.createService({ name: 'Payments API' }, 2),
+      ).resolves.toEqual({
+        id: 1,
+        name: 'Payments API',
+        description: null,
+        createdAt,
+        updatedAt: createdAt,
+      });
+      expect(serviceRepository.create).toHaveBeenCalledWith({
+        tenantId: 2,
+        name: 'Payments API',
+        description: null,
+      });
+      expect(serviceRepository.save).toHaveBeenCalledWith(service);
+    });
   });
 
   describe('listServices', () => {
@@ -118,6 +155,51 @@ describe('ServicesService', () => {
       await expect(servicesService.getService(999, 1)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('updateService', () => {
+    it('updates a service in the authenticated tenant', async () => {
+      const createdAt = new Date('2024-01-10T09:00:00.000Z');
+      const updatedAt = new Date('2024-08-05T11:15:00.000Z');
+      const service = {
+        id: 1,
+        tenantId: 1,
+        name: 'Payments API',
+        description: 'Old description',
+        createdAt,
+        updatedAt,
+        versions: [],
+      };
+      serviceRepository.findOne.mockResolvedValue(service);
+      serviceRepository.save.mockResolvedValue(service);
+
+      await expect(
+        servicesService.updateService(
+          1,
+          { name: 'Payment Service', description: null },
+          1,
+        ),
+      ).resolves.toEqual({
+        id: 1,
+        name: 'Payment Service',
+        description: null,
+        createdAt,
+        updatedAt,
+      });
+      expect(serviceRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 1, tenantId: 1 },
+      });
+      expect(serviceRepository.save).toHaveBeenCalledWith(service);
+    });
+
+    it('throws when the service is missing or belongs to another tenant', async () => {
+      serviceRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        servicesService.updateService(1, { name: 'Payment Service' }, 2),
+      ).rejects.toThrow(NotFoundException);
+      expect(serviceRepository.save).not.toHaveBeenCalled();
     });
   });
 });

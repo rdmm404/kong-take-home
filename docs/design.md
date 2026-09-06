@@ -62,6 +62,47 @@ POST /auth/demo-token
 - Body:
     - accessToken: string
 
+### Create Service
+
+**Path:**
+POST /services
+
+**Headers:**
+- Authorization: bearer token, JWT (carries userId and tenantId)
+
+**Request Body:**
+- name: string, required, maximum 255 characters
+- description: string | null, optional
+
+**Success Response:**
+- Status: 201 Created
+- Body: Service
+
+**Error Responses:**
+- 400: invalid request body
+- 401: Auth token not provided or invalid
+
+### Update Service
+
+**Path:**
+PATCH /services/:serviceId
+
+**Headers:**
+- Authorization: bearer token, JWT (carries userId and tenantId)
+
+**Request Body:**
+- name: string, optional, maximum 255 characters
+- description: string | null, optional; null clears the description
+
+**Success Response:**
+- Status: 200 OK
+- Body: Service
+
+**Error Responses:**
+- 400: invalid request body
+- 401: Auth token not provided or invalid
+- 404: Service not found, or belongs to another tenant
+
 ### Service Detail
 
 **Path:**
@@ -165,8 +206,10 @@ src/
 └── services/
     ├── dto/
     │   ├── requests/
+    │   │   ├── create-service.dto.ts
     │   │   ├── list-services-query.dto.ts
-    │   │   └── list-versions-query.dto.ts
+    │   │   ├── list-versions-query.dto.ts
+    │   │   └── update-service.dto.ts
     │   └── responses/
     │       ├── service-detail.dto.ts
     │       ├── service-list-item.dto.ts

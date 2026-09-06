@@ -9,6 +9,8 @@ import {
   OffsetPagination,
   PaginatedResult,
 } from '../common/pagination/pagination';
+import { CreateServiceDto } from './dto/requests/create-service.dto';
+import { UpdateServiceDto } from './dto/requests/update-service.dto';
 import { ServiceDetailDto } from './dto/responses/service-detail.dto';
 import { ServiceListItemDto } from './dto/responses/service-list-item.dto';
 import { Service } from './entities/service.entity';
@@ -24,6 +26,19 @@ export class ServicesService {
     private readonly serviceRepository: Repository<Service>,
     private readonly listServicesQuery: ListServicesQuery,
   ) {}
+
+  async createService(
+    input: CreateServiceDto,
+    tenantId: number,
+  ): Promise<ServiceDetailDto> {
+    const service = this.serviceRepository.create({
+      tenantId,
+      name: input.name,
+      description: input.description ?? null,
+    });
+
+    return this.toServiceDetail(await this.serviceRepository.save(service));
+  }
 
   async listServices(
     filters: ListServicesFilters,
@@ -47,6 +62,33 @@ export class ServicesService {
       throw new NotFoundException(`Service ${serviceId} not found`);
     }
 
+    return this.toServiceDetail(service);
+  }
+
+  async updateService(
+    serviceId: number,
+    input: UpdateServiceDto,
+    tenantId: number,
+  ): Promise<ServiceDetailDto> {
+    const service = await this.serviceRepository.findOne({
+      where: { id: serviceId, tenantId },
+    });
+
+    if (!service) {
+      throw new NotFoundException(`Service ${serviceId} not found`);
+    }
+
+    if (input.name !== undefined) {
+      service.name = input.name;
+    }
+    if (input.description !== undefined) {
+      service.description = input.description;
+    }
+
+    return this.toServiceDetail(await this.serviceRepository.save(service));
+  }
+
+  private toServiceDetail(service: Service): ServiceDetailDto {
     return {
       id: service.id,
       name: service.name,

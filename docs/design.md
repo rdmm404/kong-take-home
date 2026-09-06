@@ -27,6 +27,7 @@
 - `next` is the relative URL for the next page, or `null` on the final page
 - Sorting is one field at a time
 - No version scheme will be enforced for versions, just a simple string that could be anything.
+- Permanent DELETEs are acceptable for the current scope, soft deletes are excluded for the sake of simplicity.
 
 ## Entities
 
@@ -275,6 +276,7 @@ database/
 src/
 ├── main.ts
 ├── app.module.ts
+├── configure-app.ts
 ├── auth/
 │   ├── dto/
 │   │   ├── requests/
@@ -319,12 +321,13 @@ src/
     ├── versions.controller.ts
     └── versions.service.ts
 test/
+├── app.e2e-spec.ts
 └── jest-e2e.json
 ```
 
 ### Root module
 
-`AppModule` wires together configuration, authentication, the database, and the services feature. `main.ts` starts the server and applies settings shared by the whole API.
+`AppModule` wires together configuration, authentication, the database, and the services feature. `main.ts` starts the server. `configure-app.ts` applies settings shared by the running server and end-to-end tests.
 
 ### Authentication
 
@@ -346,4 +349,4 @@ The `services/` folder contains the entities, DTOs, controllers, and logic for s
 
 ### Tests
 
-Unit tests sit next to the code they cover. Future end-to-end tests will live under `test/`. Tenant isolation is the most important case to automate, followed by validation, authentication, filtering, sorting, pagination, and the detail endpoints. If time runs out, the README will list the database-backed cases that remain manual.
+Unit tests sit next to the code they cover. A focused end-to-end suite under `test/` starts the real Nest application in-process and exercises it through Supertest against PostgreSQL. It covers the main read and write flows, authentication, validation, tenant isolation, pagination, and key database constraints without repeating every unit-level edge case.

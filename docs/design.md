@@ -164,18 +164,23 @@ src/
 │   └── typeorm.config.ts
 └── services/
     ├── dto/
-    │   ├── list-services-query.dto.ts
-    │   ├── list-versions-query.dto.ts
-    │   ├── service-detail.dto.ts
-    │   ├── service-list-item.dto.ts
-    │   └── version.dto.ts
+    │   ├── requests/
+    │   │   ├── list-services-query.dto.ts
+    │   │   └── list-versions-query.dto.ts
+    │   └── responses/
+    │       ├── service-detail.dto.ts
+    │       ├── service-list-item.dto.ts
+    │       └── version.dto.ts
     ├── entities/
     │   ├── service.entity.ts
     │   └── version.entity.ts
+    ├── queries/
+    │   └── list-services.query.ts
     ├── services.controller.ts
     ├── services.module.ts
-    ├── services.service.spec.ts
-    └── services.service.ts
+    ├── services.service.ts
+    ├── versions.controller.ts
+    └── versions.service.ts
 test/
 ├── jest-e2e.json
 └── services.e2e-spec.ts
@@ -199,9 +204,9 @@ The top-level `database/` folder contains the migration CLI entry point and gene
 
 ### Services
 
-The `services/` folder contains the entities, DTOs, controller, and read logic for services and versions. Versions do not need their own module or controller because the API only exposes them through a service.
+The `services/` folder contains the entities, DTOs, controllers, and logic for services and versions. Versions use a separate controller and service so future create, update, and delete operations have a clear home. They remain in `ServicesModule` because clients only access versions through a service.
 
-`ServicesService` uses TypeORM repositories directly. We won't add repository wrappers unless query logic starts repeating. The list query calculates version counts and latest-version dates in the database instead of loading versions one service at a time. Every applicable query receives a tenant ID explicitly.
+`ServicesService` and `VersionsService` use TypeORM repositories directly. We won't add repository wrappers unless query logic starts repeating. The service list query calculates version counts and latest-version dates in the database instead of loading versions one service at a time. Every applicable query receives a tenant ID explicitly.
 
 ### Tests
 

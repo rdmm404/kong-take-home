@@ -63,7 +63,7 @@ describe('ListServicesQuery', () => {
       sortBy: '-versionCount' as const,
     });
 
-    await expect(listServicesQuery.execute(query)).resolves.toEqual({
+    await expect(listServicesQuery.execute(query, 1)).resolves.toEqual({
       data: [
         {
           id: 1,
@@ -74,6 +74,10 @@ describe('ListServicesQuery', () => {
       ],
       total: 2,
     });
+    expect(serviceQuery.andWhere).toHaveBeenCalledWith(
+      'service.tenantId = :tenantId',
+      { tenantId: 1 },
+    );
     expect(serviceQuery.offset).toHaveBeenCalledWith(1);
     expect(serviceQuery.limit).toHaveBeenCalledWith(1);
     expect(serviceQuery.addOrderBy).toHaveBeenCalledWith('service.id', 'DESC');
@@ -92,9 +96,9 @@ describe('ListServicesQuery', () => {
       latestVersionCreatedAtTo: '2024-12-31T23:59:59.999Z',
     });
 
-    await listServicesQuery.execute(query);
+    await listServicesQuery.execute(query, 1);
 
-    expect(serviceQuery.andWhere).toHaveBeenCalledTimes(7);
+    expect(serviceQuery.andWhere).toHaveBeenCalledTimes(8);
     expect(serviceQuery.andWhere).toHaveBeenCalledWith(
       '(service.name ILIKE :search OR service.description ILIKE :search)',
       { search: '%payments%' },

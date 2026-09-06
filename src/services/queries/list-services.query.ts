@@ -36,7 +36,10 @@ export class ListServicesQuery {
   ) {}
   // technically this should receive a separate entity for the arguments, however since this is a small feature, the repository is only used for HTTP
   // and the arguments map 1-to-1 to the query params, I decided to just use the DTO for the query params to avoid unnecessary mapping and boilerplate
-  async execute(query: ListServicesQueryDto): Promise<ListServicesQueryResult> {
+  async execute(
+    query: ListServicesQueryDto,
+    tenantId: number,
+  ): Promise<ListServicesQueryResult> {
     const serviceQuery = this.serviceRepository
       .createQueryBuilder('service')
       .leftJoin(
@@ -53,7 +56,8 @@ export class ListServicesQuery {
       .select('service.id', 'id')
       .addSelect('service.name', 'name')
       .addSelect('service.description', 'description')
-      .addSelect(VERSION_COUNT_EXPRESSION, 'versionCount');
+      .addSelect(VERSION_COUNT_EXPRESSION, 'versionCount')
+      .andWhere('service.tenantId = :tenantId', { tenantId });
 
     this.applyFilters(serviceQuery, query);
 

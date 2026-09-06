@@ -187,7 +187,7 @@ test/
 
 ### Authentication
 
-The `auth/` folder issues demo tokens and checks JWTs on protected requests. The demo endpoint signs a token with fixed user and tenant IDs. It is a convenient way to get a working token, not a substitute for login.
+The `auth/` folder issues demo tokens and checks JWTs on protected requests. The demo endpoint signs a token with the supplied user and tenant IDs. It is a convenient way to get a working token, not a substitute for login.
 
 `jwt-auth.guard.ts` rejects missing or invalid tokens and attaches the verified identity to the request. `current-user.decorator.ts` reads that identity for a controller, so the controller does not need the raw HTTP request.
 

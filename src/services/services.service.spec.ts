@@ -55,7 +55,7 @@ describe('ServicesService', () => {
         sortBy: '-versionCount' as const,
       });
 
-      await expect(servicesService.listServices(query)).resolves.toEqual({
+      await expect(servicesService.listServices(query, 1)).resolves.toEqual({
         data: [
           {
             id: 1,
@@ -68,7 +68,7 @@ describe('ServicesService', () => {
         totalPages: 2,
         next: '/services?page=2&perPage=1&sortBy=-versionCount',
       });
-      expect(listServicesQuery.execute).toHaveBeenCalledWith(query);
+      expect(listServicesQuery.execute).toHaveBeenCalledWith(query, 1);
     });
 
     it('rejects an inverted version count range', async () => {
@@ -77,7 +77,7 @@ describe('ServicesService', () => {
         versionCountTo: 1,
       });
 
-      await expect(servicesService.listServices(query)).rejects.toThrow(
+      await expect(servicesService.listServices(query, 1)).rejects.toThrow(
         BadRequestException,
       );
       expect(listServicesQuery.execute).not.toHaveBeenCalled();
@@ -99,7 +99,7 @@ describe('ServicesService', () => {
         versions: [],
       });
 
-      await expect(servicesService.getService(1)).resolves.toEqual({
+      await expect(servicesService.getService(1, 1)).resolves.toEqual({
         id: 1,
         name: 'Payments API',
         description: 'Processes card payments and refunds.',
@@ -107,14 +107,14 @@ describe('ServicesService', () => {
         updatedAt,
       });
       expect(serviceRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1, tenantId: 1 },
       });
     });
 
     it('throws when the service does not exist', async () => {
       serviceRepository.findOne.mockResolvedValue(null);
 
-      await expect(servicesService.getService(999)).rejects.toThrow(
+      await expect(servicesService.getService(999, 1)).rejects.toThrow(
         NotFoundException,
       );
     });

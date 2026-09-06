@@ -22,10 +22,14 @@ export class ServicesService {
 
   async listServices(
     query: ListServicesQueryDto,
+    tenantId: number,
   ): Promise<PaginatedResponseDto<ServiceListItemDto>> {
     this.validateListRanges(query);
 
-    const { data, total } = await this.listServicesQuery.execute(query);
+    const { data, total } = await this.listServicesQuery.execute(
+      query,
+      tenantId,
+    );
     const totalPages = Math.ceil(total / query.perPage);
 
     return {
@@ -36,9 +40,12 @@ export class ServicesService {
     };
   }
 
-  async getService(serviceId: number): Promise<ServiceDetailDto> {
+  async getService(
+    serviceId: number,
+    tenantId: number,
+  ): Promise<ServiceDetailDto> {
     const service = await this.serviceRepository.findOne({
-      where: { id: serviceId },
+      where: { id: serviceId, tenantId },
     });
 
     if (!service) {

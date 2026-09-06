@@ -25,6 +25,7 @@
 - Pagination is one-based; `page` defaults to 1 and `perPage` defaults to 10, with a maximum of 100
 - `next` is the relative URL for the next page, or `null` on the final page
 - Sorting is one field at a time
+- No version scheme will be enforced for versions, just a simple string that could be anything.
 
 ## Entities
 
@@ -146,6 +147,9 @@ GET /services
 We'll organize the code by feature. Versions stay under `services/` because clients only access them through a service.
 
 ```text
+database/
+├── data-source.ts
+└── migrations/
 src/
 ├── main.ts
 ├── app.module.ts
@@ -156,10 +160,8 @@ src/
 │   ├── authenticated-user.interface.ts
 │   ├── current-user.decorator.ts
 │   └── jwt-auth.guard.ts
-├── database/
-│   ├── typeorm.config.ts
-│   ├── data-source.ts
-│   └── migrations/
+├── config/
+│   └── typeorm.config.ts
 └── services/
     ├── dto/
     │   ├── list-services-query.dto.ts
@@ -193,7 +195,7 @@ A real login flow would add a `users/` feature to store and look up users. Auth 
 
 ### Database
 
-The `database/` folder contains TypeORM configuration and migrations. `typeorm.config.ts` exports the options factory used when Nest starts. `data-source.ts` exports the `DataSource` required by the migration CLI, which does not start Nest or use its dependency injection.
+The top-level `database/` folder contains the migration CLI entry point and generated migrations. `data-source.ts` exports the `DataSource` required by the CLI, which does not start Nest or use its dependency injection. The runtime options factory stays under `src/config/` because it is part of the Nest application.
 
 ### Services
 

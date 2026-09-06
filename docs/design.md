@@ -182,13 +182,12 @@ src/
     ├── versions.controller.ts
     └── versions.service.ts
 test/
-├── jest-e2e.json
-└── services.e2e-spec.ts
+└── jest-e2e.json
 ```
 
 ### Root module
 
-`AppModule` wires together configuration, authentication, the database, and the services feature. `main.ts` starts the server and applies settings shared by the whole API. The generated Nest controller and service can go away once the services API replaces them.
+`AppModule` wires together configuration, authentication, the database, and the services feature. `main.ts` starts the server and applies settings shared by the whole API.
 
 ### Authentication
 
@@ -210,4 +209,4 @@ The `services/` folder contains the entities, DTOs, controllers, and logic for s
 
 ### Tests
 
-Unit tests sit next to `ServicesService`. End-to-end tests live under `test/`. Tenant isolation is the most important case to automate, followed by validation, authentication, filtering, sorting, pagination, and the detail endpoints. If time runs out, the README will list the database-backed cases that remain manual.
+Unit tests sit next to the code they cover. Future end-to-end tests will live under `test/`. Tenant isolation is the most important case to automate, followed by validation, authentication, filtering, sorting, pagination, and the detail endpoints. If time runs out, the README will list the database-backed cases that remain manual.

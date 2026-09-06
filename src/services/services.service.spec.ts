@@ -1,7 +1,11 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { Service } from './entities/service.entity';
 import { ListServicesQuery } from './queries/list-services.query';
 import { ServicesService } from './services.service';
@@ -9,7 +13,7 @@ import { ServicesService } from './services.service';
 describe('ServicesService', () => {
   let servicesService: ServicesService;
   let serviceRepository: jest.Mocked<
-    Pick<Repository<Service>, 'create' | 'findOne' | 'save'>
+    Pick<Repository<Service>, 'create' | 'findOne' | 'remove' | 'save'>
   >;
   let listServicesQuery: jest.Mocked<Pick<ListServicesQuery, 'execute'>>;
 
@@ -17,6 +21,7 @@ describe('ServicesService', () => {
     serviceRepository = {
       create: jest.fn(),
       findOne: jest.fn(),
+      remove: jest.fn(),
       save: jest.fn(),
     };
     listServicesQuery = {
@@ -200,6 +205,59 @@ describe('ServicesService', () => {
         servicesService.updateService(1, { name: 'Payment Service' }, 2),
       ).rejects.toThrow(NotFoundException);
       expect(serviceRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteService', () => {
+    it('deletes an empty service in the authenticated tenant', async () => {
+      const service = {
+        id: 1,
+        tenantId: 2,
+        name: 'Payments API',
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        versions: [],
+      };
+      serviceRepository.findOne.mockResolvedValue(service);
+      serviceRepository.remove.mockResolvedValue(service);
+
+      await expect(
+        servicesService.deleteService(1, 2),
+      ).resolves.toBeUndefined();
+      expect(serviceRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 1, tenantId: 2 },
+      });
+      expect(serviceRepository.remove).toHaveBeenCalledWith(service);
+    });
+
+    it('throws when the service is missing or belongs to another tenant', async () => {
+      serviceRepository.findOne.mockResolvedValue(null);
+
+      await expect(servicesService.deleteService(1, 2)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(serviceRepository.remove).not.toHaveBeenCalled();
+    });
+
+    it('returns a conflict when the service still has versions', async () => {
+      const service = {
+        id: 1,
+        tenantId: 2,
+        name: 'Payments API',
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        versions: [],
+      };
+      const driverError = Object.assign(new Error(), { code: '23503' });
+      const error = new QueryFailedError('', [], driverError);
+      serviceRepository.findOne.mockResolvedValue(service);
+      serviceRepository.remove.mockRejectedValue(error);
+
+      await expect(servicesService.deleteService(1, 2)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 });

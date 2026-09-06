@@ -103,6 +103,24 @@ PATCH /services/:serviceId
 - 401: Auth token not provided or invalid
 - 404: Service not found, or belongs to another tenant
 
+### Delete Service
+
+**Path:**
+DELETE /services/:serviceId
+
+**Headers:**
+- Authorization: bearer token, JWT (carries userId and tenantId)
+
+**Success Response:**
+- Status: 204 No Content
+
+**Error Responses:**
+- 401: Auth token not provided or invalid
+- 404: Service not found, or belongs to another tenant
+- 409: Service still has versions
+
+Services must be empty before deletion. The database foreign key restricts deletion while versions still reference the service.
+
 ### Service Detail
 
 **Path:**

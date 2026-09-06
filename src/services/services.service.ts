@@ -1,10 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import {
   OffsetPagination,
   PaginatedResult,
@@ -86,6 +87,31 @@ export class ServicesService {
     }
 
     return this.toServiceDetail(await this.serviceRepository.save(service));
+  }
+
+  async deleteService(serviceId: number, tenantId: number): Promise<void> {
+    const service = await this.serviceRepository.findOne({
+      where: { id: serviceId, tenantId },
+    });
+
+    if (!service) {
+      throw new NotFoundException(`Service ${serviceId} not found`);
+    }
+
+    try {
+      await this.serviceRepository.remove(service);
+    } catch (error) {
+      if (
+        error instanceof QueryFailedError &&
+        (error.driverError as { code?: string }).code === '23503'
+      ) {
+        throw new ConflictException(
+          `Service ${serviceId} cannot be deleted while it has versions`,
+        );
+      }
+
+      throw error;
+    }
   }
 
   private toServiceDetail(service: Service): ServiceDetailDto {

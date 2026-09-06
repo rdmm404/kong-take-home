@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
@@ -71,5 +74,14 @@ export class ServicesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ServiceDetailDto> {
     return this.servicesService.updateService(serviceId, body, user.tenantId);
+  }
+
+  @Delete(':serviceId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteService(
+    @Param('serviceId', ParseIntPipe) serviceId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    return this.servicesService.deleteService(serviceId, user.tenantId);
   }
 }

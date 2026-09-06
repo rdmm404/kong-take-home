@@ -7,11 +7,12 @@
     - pagination
     - filtering
 - Version numbers can be arbitrary
-- Authentication uses a pre-generated demo JWT with fixed `userId` and `tenantId` claims
-    - The API validates the JWT using a development secret provided through an environment variable
-    - Login, token issuance, and user/tenant management are out of scope for the first iteration
-    - If time permits, a `User` model and proper `/login` endpoint will be added
-    - The tenant is always taken from the validated JWT and cannot be overridden by the client
+- Authentication uses a demo JWT with `userId` and `tenantId` claims
+    - A development-only auth endpoint accepts both IDs and issues a valid token signed by the application, without requiring a user table or credentials
+    - The API signs and validates the JWT using a development secret provided through an environment variable
+    - Proper login, credential storage, and user/tenant management are out of scope for the first iteration
+    - A fuller implementation would place user persistence in a separate `UsersModule`, while `AuthModule` would remain responsible for login and token handling
+    - Service endpoints always take the tenant from the validated JWT; their query parameters cannot override it
 - Filtering is limited to (what i think) would be what is useful here:
     - Searching on the service name and description using case-insensitive substring matching
     - Version count per service
@@ -44,6 +45,21 @@
 - updatedAt: timestamp
 
 ## API
+
+### Demo Token
+This is a demo "authentication" endpoint. It's just a helper to be used for generating signed JWTs that the app will accept. It can accept any combination of userId and tenantId to make it easier for testing.
+
+**Path:**
+POST /auth/demo-token
+
+**Request Body:**
+- userId: integer
+- tenantId: integer
+
+**Success Response:**
+- Status: 201 Created
+- Body:
+    - accessToken: string
 
 ### Service Detail
 
@@ -124,3 +140,67 @@ GET /services
 **Error Responses:**
 - 400: invalid query params
 - 401: Auth token not provided or invalid
+
+## Application structure
+
+We'll organize the code by feature. Versions stay under `services/` because clients only access them through a service.
+
+```text
+src/
+├── main.ts
+├── app.module.ts
+├── auth/
+│   ├── auth.controller.ts
+│   ├── auth.module.ts
+│   ├── auth.service.ts
+│   ├── authenticated-user.interface.ts
+│   ├── current-user.decorator.ts
+│   └── jwt-auth.guard.ts
+├── database/
+│   ├── typeorm.config.ts
+│   ├── data-source.ts
+│   └── migrations/
+└── services/
+    ├── dto/
+    │   ├── list-services-query.dto.ts
+    │   ├── list-versions-query.dto.ts
+    │   ├── service-detail.dto.ts
+    │   ├── service-list-item.dto.ts
+    │   └── version.dto.ts
+    ├── entities/
+    │   ├── service.entity.ts
+    │   └── version.entity.ts
+    ├── services.controller.ts
+    ├── services.module.ts
+    ├── services.service.spec.ts
+    └── services.service.ts
+test/
+├── jest-e2e.json
+└── services.e2e-spec.ts
+```
+
+### Root module
+
+`AppModule` wires together configuration, authentication, the database, and the services feature. `main.ts` starts the server and applies settings shared by the whole API. The generated Nest controller and service can go away once the services API replaces them.
+
+### Authentication
+
+The `auth/` folder issues demo tokens and checks JWTs on protected requests. The demo endpoint signs a token with fixed user and tenant IDs. It is a convenient way to get a working token, not a substitute for login.
+
+`jwt-auth.guard.ts` rejects missing or invalid tokens and attaches the verified identity to the request. `current-user.decorator.ts` reads that identity for a controller, so the controller does not need the raw HTTP request.
+
+A real login flow would add a `users/` feature to store and look up users. Auth would call it to check credentials, then issue the token.
+
+### Database
+
+The `database/` folder contains TypeORM configuration and migrations. `typeorm.config.ts` exports the options factory used when Nest starts. `data-source.ts` exports the `DataSource` required by the migration CLI, which does not start Nest or use its dependency injection.
+
+### Services
+
+The `services/` folder contains the entities, DTOs, controller, and read logic for services and versions. Versions do not need their own module or controller because the API only exposes them through a service.
+
+`ServicesService` uses TypeORM repositories directly. We won't add repository wrappers unless query logic starts repeating. The list query calculates version counts and latest-version dates in the database instead of loading versions one service at a time. Every applicable query receives a tenant ID explicitly.
+
+### Tests
+
+Unit tests sit next to `ServicesService`. End-to-end tests live under `test/`. Tenant isolation is the most important case to automate, followed by validation, authentication, filtering, sorting, pagination, and the detail endpoints. If time runs out, the README will list the database-backed cases that remain manual.

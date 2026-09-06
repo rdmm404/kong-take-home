@@ -8,7 +8,8 @@
     - filtering
 - Version numbers can be arbitrary
 - Authentication uses a demo JWT with `userId` and `tenantId` claims
-    - A development-only auth endpoint accepts both IDs and issues a valid token signed by the application, without requiring a user table or credentials
+    - A demo auth endpoint accepts both IDs and issues a valid token signed by the application, without requiring a user table or credentials
+    - The demo endpoint is included in this take-home application in every environment. A production deployment would omit it and trust tokens from a dedicated auth service or external identity provider
     - The API signs and validates the JWT using a development secret provided through an environment variable
     - Proper login, credential storage, and user/tenant management are out of scope for the first iteration
     - A fuller implementation would place user persistence in a separate `UsersModule`, while `AuthModule` would remain responsible for login and token handling
@@ -54,8 +55,8 @@ This is a demo "authentication" endpoint. It's just a helper to be used for gene
 POST /auth/demo-token
 
 **Request Body:**
-- userId: integer
-- tenantId: integer
+- userId: positive integer
+- tenantId: positive integer
 
 **Success Response:**
 - Status: 201 Created
@@ -71,7 +72,7 @@ POST /services
 - Authorization: bearer token, JWT (carries userId and tenantId)
 
 **Request Body:**
-- name: string, required, maximum 255 characters
+- name: non-empty string, required, maximum 255 characters
 - description: string | null, optional
 
 **Success Response:**
@@ -91,7 +92,7 @@ PATCH /services/:serviceId
 - Authorization: bearer token, JWT (carries userId and tenantId)
 
 **Request Body:**
-- name: string, optional, maximum 255 characters
+- name: non-empty string when provided, optional, maximum 255 characters
 - description: string | null, optional; null clears the description
 
 **Success Response:**
@@ -146,7 +147,7 @@ POST /services/:serviceId/versions
 - Authorization: bearer token, JWT (carries userId and tenantId)
 
 **Request Body:**
-- version: string, required, maximum 255 characters
+- version: non-empty string, required, maximum 255 characters
 - notes: string | null, optional
 
 **Success Response:**
@@ -168,7 +169,7 @@ PATCH /services/:serviceId/versions/:versionId
 - Authorization: bearer token, JWT (carries userId and tenantId)
 
 **Request Body:**
-- version: string, optional, maximum 255 characters
+- version: non-empty string when provided, optional, maximum 255 characters
 - notes: string | null, optional; null clears the notes
 
 **Success Response:**
@@ -267,17 +268,31 @@ We'll organize the code by feature. Versions stay under `services/` because clie
 ```text
 database/
 ├── data-source.ts
-└── migrations/
+├── migrations/
+└── seeds/
+    ├── data.ts
+    └── seed.ts
 src/
 ├── main.ts
 ├── app.module.ts
 ├── auth/
+│   ├── dto/
+│   │   ├── requests/
+│   │   │   └── create-demo-token.dto.ts
+│   │   └── responses/
+│   │       └── demo-token.dto.ts
 │   ├── auth.controller.ts
 │   ├── auth.module.ts
 │   ├── auth.service.ts
 │   ├── authenticated-user.interface.ts
 │   ├── current-user.decorator.ts
 │   └── jwt-auth.guard.ts
+├── common/
+│   ├── database/
+│   │   └── postgres-error-code.ts
+│   └── pagination/
+│       ├── paginated-response.dto.ts
+│       └── pagination.ts
 ├── config/
 │   └── typeorm.config.ts
 └── services/
@@ -327,7 +342,7 @@ The top-level `database/` folder contains the migration CLI entry point and gene
 
 The `services/` folder contains the entities, DTOs, controllers, and logic for services and versions. Versions use a separate controller and service so their list, create, update, and delete operations have a clear home. They remain in `ServicesModule` because clients only access versions through a service.
 
-`ServicesService` and `VersionsService` use TypeORM repositories directly. We won't add repository wrappers unless query logic starts repeating. The controllers translate API pages into offsets and limits, then build pagination metadata and links with shared helpers. The services only receive the database pagination values. The service list query calculates version counts and latest-version dates in the database instead of loading versions one service at a time. Every applicable query receives a tenant ID explicitly.
+`ServicesService` uses the service repository, and `VersionsService` uses the version repository. `VersionsService` delegates tenant-scoped parent service lookups to `ServicesService` so that access rules are not repeated. We won't add repository wrappers unless query logic starts repeating. The controllers translate API pages into offsets and limits, then build pagination metadata and links with shared helpers. The services only receive the database pagination values. The service list query calculates version counts and latest-version dates in the database instead of loading versions one service at a time. Every public operation receives a tenant ID explicitly.
 
 ### Tests
 

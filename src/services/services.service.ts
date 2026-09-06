@@ -5,12 +5,17 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PaginatedResponseDto } from '../common/dto/responses/paginated-response.dto';
-import { ListServicesQueryDto } from './dto/requests/list-services-query.dto';
+import {
+  OffsetPagination,
+  PaginatedResult,
+} from '../common/pagination/pagination';
 import { ServiceDetailDto } from './dto/responses/service-detail.dto';
 import { ServiceListItemDto } from './dto/responses/service-list-item.dto';
 import { Service } from './entities/service.entity';
-import { ListServicesQuery } from './queries/list-services.query';
+import {
+  ListServicesFilters,
+  ListServicesQuery,
+} from './queries/list-services.query';
 
 @Injectable()
 export class ServicesService {
@@ -21,23 +26,13 @@ export class ServicesService {
   ) {}
 
   async listServices(
-    query: ListServicesQueryDto,
+    filters: ListServicesFilters,
+    pagination: OffsetPagination,
     tenantId: number,
-  ): Promise<PaginatedResponseDto<ServiceListItemDto>> {
-    this.validateListRanges(query);
+  ): Promise<PaginatedResult<ServiceListItemDto>> {
+    this.validateListRanges(filters);
 
-    const { data, total } = await this.listServicesQuery.execute(
-      query,
-      tenantId,
-    );
-    const totalPages = Math.ceil(total / query.perPage);
-
-    return {
-      data,
-      total,
-      totalPages,
-      next: this.createNextPageUrl(query, totalPages),
-    };
+    return this.listServicesQuery.execute(filters, pagination, tenantId);
   }
 
   async getService(
@@ -61,11 +56,11 @@ export class ServicesService {
     };
   }
 
-  private validateListRanges(query: ListServicesQueryDto): void {
+  private validateListRanges(filters: ListServicesFilters): void {
     if (
-      query.versionCountFrom !== undefined &&
-      query.versionCountTo !== undefined &&
-      query.versionCountFrom > query.versionCountTo
+      filters.versionCountFrom !== undefined &&
+      filters.versionCountTo !== undefined &&
+      filters.versionCountFrom > filters.versionCountTo
     ) {
       throw new BadRequestException(
         'versionCountFrom must not be greater than versionCountTo',
@@ -73,13 +68,13 @@ export class ServicesService {
     }
 
     this.validateDateRange(
-      query.createdAtFrom,
-      query.createdAtTo,
+      filters.createdAtFrom,
+      filters.createdAtTo,
       'createdAtFrom must not be later than createdAtTo',
     );
     this.validateDateRange(
-      query.latestVersionCreatedAtFrom,
-      query.latestVersionCreatedAtTo,
+      filters.latestVersionCreatedAtFrom,
+      filters.latestVersionCreatedAtTo,
       'latestVersionCreatedAtFrom must not be later than latestVersionCreatedAtTo',
     );
   }
@@ -96,37 +91,5 @@ export class ServicesService {
     ) {
       throw new BadRequestException(message);
     }
-  }
-
-  private createNextPageUrl(
-    query: ListServicesQueryDto,
-    totalPages: number,
-  ): string | null {
-    if (query.page >= totalPages) {
-      return null;
-    }
-
-    const params = new URLSearchParams({
-      page: String(query.page + 1),
-      perPage: String(query.perPage),
-    });
-    const optionalParams = {
-      sortBy: query.sortBy,
-      search: query.search,
-      versionCountFrom: query.versionCountFrom,
-      versionCountTo: query.versionCountTo,
-      createdAtFrom: query.createdAtFrom,
-      createdAtTo: query.createdAtTo,
-      latestVersionCreatedAtFrom: query.latestVersionCreatedAtFrom,
-      latestVersionCreatedAtTo: query.latestVersionCreatedAtTo,
-    };
-
-    for (const [name, value] of Object.entries(optionalParams)) {
-      if (value !== undefined) {
-        params.set(name, String(value));
-      }
-    }
-
-    return `/services?${params.toString()}`;
   }
 }

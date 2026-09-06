@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import {
-  ListServicesQueryDto,
-  ServiceSort,
-} from '../dto/requests/list-services-query.dto';
+import { OffsetPagination } from '../../common/pagination/pagination';
+import { ServiceSort } from '../dto/requests/list-services-query.dto';
 import { ServiceListItemDto } from '../dto/responses/service-list-item.dto';
 import { Service } from '../entities/service.entity';
 import { Version } from '../entities/version.entity';
@@ -18,6 +16,17 @@ interface ServiceListRow {
   name: string;
   description: string | null;
   versionCount: number | string;
+}
+
+export interface ListServicesFilters {
+  sortBy?: ServiceSort;
+  search?: string;
+  versionCountFrom?: number;
+  versionCountTo?: number;
+  createdAtFrom?: string;
+  createdAtTo?: string;
+  latestVersionCreatedAtFrom?: string;
+  latestVersionCreatedAtTo?: string;
 }
 
 export interface ListServicesQueryResult {
@@ -34,10 +43,9 @@ export class ListServicesQuery {
     @InjectRepository(Service)
     private readonly serviceRepository: Repository<Service>,
   ) {}
-  // technically this should receive a separate entity for the arguments, however since this is a small feature, the repository is only used for HTTP
-  // and the arguments map 1-to-1 to the query params, I decided to just use the DTO for the query params to avoid unnecessary mapping and boilerplate
   async execute(
-    query: ListServicesQueryDto,
+    filters: ListServicesFilters,
+    pagination: OffsetPagination,
     tenantId: number,
   ): Promise<ListServicesQueryResult> {
     const serviceQuery = this.serviceRepository
@@ -59,12 +67,12 @@ export class ListServicesQuery {
       .addSelect(VERSION_COUNT_EXPRESSION, 'versionCount')
       .andWhere('service.tenantId = :tenantId', { tenantId });
 
-    this.applyFilters(serviceQuery, query);
+    this.applyFilters(serviceQuery, filters);
 
     const total = await serviceQuery.getCount();
 
-    this.applySort(serviceQuery, query.sortBy);
-    serviceQuery.offset((query.page - 1) * query.perPage).limit(query.perPage);
+    this.applySort(serviceQuery, filters.sortBy);
+    serviceQuery.offset(pagination.offset).limit(pagination.limit);
 
     const rows = await serviceQuery.getRawMany<ServiceListRow>();
 
@@ -83,53 +91,53 @@ export class ListServicesQuery {
 
   private applyFilters(
     serviceQuery: SelectQueryBuilder<Service>,
-    query: ListServicesQueryDto,
+    filters: ListServicesFilters,
   ): void {
-    if (query.search !== undefined) {
+    if (filters.search !== undefined) {
       serviceQuery.andWhere(
         '(service.name ILIKE :search OR service.description ILIKE :search)',
-        { search: `%${query.search}%` },
+        { search: `%${filters.search}%` },
       );
     }
 
-    if (query.versionCountFrom !== undefined) {
+    if (filters.versionCountFrom !== undefined) {
       serviceQuery.andWhere(
         `${VERSION_COUNT_EXPRESSION} >= :versionCountFrom`,
         {
-          versionCountFrom: query.versionCountFrom,
+          versionCountFrom: filters.versionCountFrom,
         },
       );
     }
 
-    if (query.versionCountTo !== undefined) {
+    if (filters.versionCountTo !== undefined) {
       serviceQuery.andWhere(`${VERSION_COUNT_EXPRESSION} <= :versionCountTo`, {
-        versionCountTo: query.versionCountTo,
+        versionCountTo: filters.versionCountTo,
       });
     }
 
-    if (query.createdAtFrom !== undefined) {
+    if (filters.createdAtFrom !== undefined) {
       serviceQuery.andWhere('service.createdAt >= :createdAtFrom', {
-        createdAtFrom: query.createdAtFrom,
+        createdAtFrom: filters.createdAtFrom,
       });
     }
 
-    if (query.createdAtTo !== undefined) {
+    if (filters.createdAtTo !== undefined) {
       serviceQuery.andWhere('service.createdAt <= :createdAtTo', {
-        createdAtTo: query.createdAtTo,
+        createdAtTo: filters.createdAtTo,
       });
     }
 
-    if (query.latestVersionCreatedAtFrom !== undefined) {
+    if (filters.latestVersionCreatedAtFrom !== undefined) {
       serviceQuery.andWhere(
         `${LATEST_VERSION_CREATED_AT_EXPRESSION} >= :latestVersionCreatedAtFrom`,
-        { latestVersionCreatedAtFrom: query.latestVersionCreatedAtFrom },
+        { latestVersionCreatedAtFrom: filters.latestVersionCreatedAtFrom },
       );
     }
 
-    if (query.latestVersionCreatedAtTo !== undefined) {
+    if (filters.latestVersionCreatedAtTo !== undefined) {
       serviceQuery.andWhere(
         `${LATEST_VERSION_CREATED_AT_EXPRESSION} <= :latestVersionCreatedAtTo`,
-        { latestVersionCreatedAtTo: query.latestVersionCreatedAtTo },
+        { latestVersionCreatedAtTo: filters.latestVersionCreatedAtTo },
       );
     }
   }

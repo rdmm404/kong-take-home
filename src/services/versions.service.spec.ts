@@ -2,7 +2,6 @@ import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Repository } from 'typeorm';
-import { ListVersionsQueryDto } from './dto/requests/list-versions-query.dto';
 import { Service } from './entities/service.entity';
 import { Version } from './entities/version.entity';
 import { VersionsService } from './versions.service';
@@ -55,9 +54,11 @@ describe('VersionsService', () => {
       ],
       2,
     ]);
-    const query = Object.assign(new ListVersionsQueryDto(), { perPage: 1 });
+    const pagination = { offset: 0, limit: 1 };
 
-    await expect(versionsService.listVersions(1, query, 1)).resolves.toEqual({
+    await expect(
+      versionsService.listVersions(1, pagination, 1),
+    ).resolves.toEqual({
       data: [
         {
           id: 3,
@@ -68,8 +69,6 @@ describe('VersionsService', () => {
         },
       ],
       total: 2,
-      totalPages: 2,
-      next: '/services/1/versions?page=2&perPage=1',
     });
     expect(serviceRepository.exists).toHaveBeenCalledWith({
       where: { id: 1, tenantId: 1 },
@@ -86,7 +85,7 @@ describe('VersionsService', () => {
     serviceRepository.exists.mockResolvedValue(false);
 
     await expect(
-      versionsService.listVersions(1, new ListVersionsQueryDto(), 2),
+      versionsService.listVersions(1, { offset: 0, limit: 10 }, 2),
     ).rejects.toThrow(NotFoundException);
     expect(versionRepository.findAndCount).not.toHaveBeenCalled();
   });

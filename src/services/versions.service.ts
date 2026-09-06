@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PaginatedResponseDto } from '../common/dto/responses/paginated-response.dto';
-import { ListVersionsQueryDto } from './dto/requests/list-versions-query.dto';
+import {
+  OffsetPagination,
+  PaginatedResult,
+} from '../common/pagination/pagination';
 import { VersionDto } from './dto/responses/version.dto';
 import { Service } from './entities/service.entity';
 import { Version } from './entities/version.entity';
@@ -18,9 +20,9 @@ export class VersionsService {
 
   async listVersions(
     serviceId: number,
-    query: ListVersionsQueryDto,
+    pagination: OffsetPagination,
     tenantId: number,
-  ): Promise<PaginatedResponseDto<VersionDto>> {
+  ): Promise<PaginatedResult<VersionDto>> {
     const serviceExists = await this.serviceRepository.exists({
       where: { id: serviceId, tenantId },
     });
@@ -32,10 +34,9 @@ export class VersionsService {
     const [versions, total] = await this.versionRepository.findAndCount({
       where: { serviceId },
       order: { createdAt: 'DESC', id: 'DESC' },
-      skip: (query.page - 1) * query.perPage,
-      take: query.perPage,
+      skip: pagination.offset,
+      take: pagination.limit,
     });
-    const totalPages = Math.ceil(total / query.perPage);
 
     return {
       data: versions.map((version) => ({
@@ -46,25 +47,6 @@ export class VersionsService {
         updatedAt: version.updatedAt,
       })),
       total,
-      totalPages,
-      next: this.createNextPageUrl(serviceId, query, totalPages),
     };
-  }
-
-  private createNextPageUrl(
-    serviceId: number,
-    query: ListVersionsQueryDto,
-    totalPages: number,
-  ): string | null {
-    if (query.page >= totalPages) {
-      return null;
-    }
-
-    const params = new URLSearchParams({
-      page: String(query.page + 1),
-      perPage: String(query.perPage),
-    });
-
-    return `/services/${serviceId}/versions?${params.toString()}`;
   }
 }

@@ -1,6 +1,5 @@
 import 'reflect-metadata';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { ListServicesQueryDto } from '../dto/requests/list-services-query.dto';
 import { Service } from '../entities/service.entity';
 import { ListServicesQuery } from './list-services.query';
 
@@ -57,13 +56,12 @@ describe('ListServicesQuery', () => {
         versionCount: '3',
       },
     ]);
-    const query = Object.assign(new ListServicesQueryDto(), {
-      page: 2,
-      perPage: 1,
-      sortBy: '-versionCount' as const,
-    });
+    const filters = { sortBy: '-versionCount' as const };
+    const pagination = { offset: 1, limit: 1 };
 
-    await expect(listServicesQuery.execute(query, 1)).resolves.toEqual({
+    await expect(
+      listServicesQuery.execute(filters, pagination, 1),
+    ).resolves.toEqual({
       data: [
         {
           id: 1,
@@ -86,7 +84,7 @@ describe('ListServicesQuery', () => {
   it('applies the supplied filters', async () => {
     serviceQuery.getCount.mockResolvedValue(0);
     serviceQuery.getRawMany.mockResolvedValue([]);
-    const query = Object.assign(new ListServicesQueryDto(), {
+    const filters = {
       search: 'payments',
       versionCountFrom: 1,
       versionCountTo: 3,
@@ -94,9 +92,9 @@ describe('ListServicesQuery', () => {
       createdAtTo: '2024-12-31T23:59:59.999Z',
       latestVersionCreatedAtFrom: '2024-06-01T00:00:00.000Z',
       latestVersionCreatedAtTo: '2024-12-31T23:59:59.999Z',
-    });
+    };
 
-    await listServicesQuery.execute(query, 1);
+    await listServicesQuery.execute(filters, { offset: 0, limit: 10 }, 1);
 
     expect(serviceQuery.andWhere).toHaveBeenCalledTimes(8);
     expect(serviceQuery.andWhere).toHaveBeenCalledWith(

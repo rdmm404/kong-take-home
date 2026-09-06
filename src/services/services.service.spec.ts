@@ -2,7 +2,6 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Repository } from 'typeorm';
-import { ListServicesQueryDto } from './dto/requests/list-services-query.dto';
 import { Service } from './entities/service.entity';
 import { ListServicesQuery } from './queries/list-services.query';
 import { ServicesService } from './services.service';
@@ -50,12 +49,12 @@ describe('ServicesService', () => {
         ],
         total: 2,
       });
-      const query = Object.assign(new ListServicesQueryDto(), {
-        perPage: 1,
-        sortBy: '-versionCount' as const,
-      });
+      const filters = { sortBy: '-versionCount' as const };
+      const pagination = { offset: 0, limit: 1 };
 
-      await expect(servicesService.listServices(query, 1)).resolves.toEqual({
+      await expect(
+        servicesService.listServices(filters, pagination, 1),
+      ).resolves.toEqual({
         data: [
           {
             id: 1,
@@ -65,21 +64,23 @@ describe('ServicesService', () => {
           },
         ],
         total: 2,
-        totalPages: 2,
-        next: '/services?page=2&perPage=1&sortBy=-versionCount',
       });
-      expect(listServicesQuery.execute).toHaveBeenCalledWith(query, 1);
+      expect(listServicesQuery.execute).toHaveBeenCalledWith(
+        filters,
+        pagination,
+        1,
+      );
     });
 
     it('rejects an inverted version count range', async () => {
-      const query = Object.assign(new ListServicesQueryDto(), {
+      const filters = {
         versionCountFrom: 3,
         versionCountTo: 1,
-      });
+      };
 
-      await expect(servicesService.listServices(query, 1)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        servicesService.listServices(filters, { offset: 0, limit: 10 }, 1),
+      ).rejects.toThrow(BadRequestException);
       expect(listServicesQuery.execute).not.toHaveBeenCalled();
     });
   });

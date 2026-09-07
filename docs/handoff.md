@@ -37,7 +37,7 @@ The list query will require joins/aggregation for version count, latest-version 
 
 Do not implement merely because these are listed; wait for an explicit request, per project instructions.
 
-1. Finish discussing or configure centralized environment settings (`PORT`, `DATABASE_URL`, `JWT_SECRET`) with validation.
+1. Finish discussing or configure centralized environment settings (`APP_PORT`, `DATABASE_URL`, `JWT_SECRET`) with validation.
 2. Add `TypeOrmModule.forRootAsync(...)` to `AppModule` and `TypeOrmModule.forFeature(...)` to a feature module.
 3. Establish the feature directory and entities from `docs/design.md`.
 4. Decide migration CLI/`DataSource` layout and add the initial migration; avoid relying on `synchronize: true` for the submitted project.

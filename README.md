@@ -18,7 +18,7 @@ Install dependencies (package manager used was pnpm):
 pnpm install
 ```
 
-Copy the example env file into `.env`. Optional: update `JWT_SECRET` with a different value.
+Copy the example env file into `.env`. Optional: update `APP_PORT` or `JWT_SECRET` with different values.
 ```bash
 cp .env.example .env
 ```

@@ -14,7 +14,7 @@
     - Proper login, credential storage, and user/tenant management are out of scope for the first iteration
     - A fuller implementation would place user persistence in a separate `UsersModule`, while `AuthModule` would remain responsible for login and token handling
     - Service endpoints always take the tenant from the validated JWT; their query parameters cannot override it
-- Filtering is limited to (what i think) would be what is useful here:
+- Filtering is limited to (what i think) would be useful for this dashboard:
     - Searching on the service name and description using case-insensitive substring matching
     - Version count per service
     - Latest version created date range
@@ -26,7 +26,7 @@
 - Pagination is one-based; `page` defaults to 1 and `perPage` defaults to 10, with a maximum of 100
 - `next` is the relative URL for the next page, or `null` on the final page
 - Sorting is one field at a time
-- No version scheme will be enforced for versions, just a simple string that could be anything.
+- Empty PATCH requests are accepted as no-ops since all update fields are optional
 - Permanent DELETEs are acceptable for the current scope, soft deletes are excluded for the sake of simplicity.
 
 ## Entities
@@ -36,21 +36,25 @@
 - tenantId: integer | index
 - name: string
 - description: string | nullable
-- createdAt: timestamp | index
-- updatedAt: timestamp
+- createdAt: timestamptz | index
+- updatedAt: timestamptz
 
 ### Version
 - id: integer | primary key | autoincrement
 - serviceId: integer | foreign key to Service | index
 - version: string | unique per service
 - notes: string | nullable
-- createdAt: timestamp | index
-- updatedAt: timestamp
+- createdAt: timestamptz | index
+- updatedAt: timestamptz
+
+`tenantId` lives on Service, while Version gets its tenant through its parent. This avoids storing the same tenant relationship twice. Every lookup is scoped using the tenant in the JWT, and cross-tenant resources return 404 so we don't reveal that they exist. `tenantId` isn't included in API responses because clients don't need it.
+
+Database constraints are the final authority for version uniqueness and service/version relationships. This keeps those rules correct under concurrent requests. Service deletion is restricted instead of cascading because silently deleting all version history would be surprising.
 
 ## API
 
 ### Demo Token
-This is a demo "authentication" endpoint. It's just a helper to be used for generating signed JWTs that the app will accept. It can accept any combination of userId and tenantId to make it easier for testing.
+This is a demo "authentication" endpoint. It's just a helper to be used for generating signed JWTs that the app will accept. It can accept any combination of userId and tenantId to make it easier for testing. Tokens use HS256 and expire after one hour.
 
 **Path:**
 POST /auth/demo-token
@@ -78,7 +82,12 @@ POST /services
 
 **Success Response:**
 - Status: 201 Created
-- Body: Service
+- Body:
+    - id: integer
+    - name: string
+    - description: string | null
+    - createdAt: string (iso timestamp)
+    - updatedAt: string (iso timestamp)
 
 **Error Responses:**
 - 400: invalid request body
@@ -98,7 +107,12 @@ PATCH /services/:serviceId
 
 **Success Response:**
 - Status: 200 OK
-- Body: Service
+- Body:
+    - id: integer
+    - name: string
+    - description: string | null
+    - createdAt: string (iso timestamp)
+    - updatedAt: string (iso timestamp)
 
 **Error Responses:**
 - 400: invalid request body
@@ -133,7 +147,12 @@ GET /services/:serviceId
 
 **Success Response:**
 - Status: 200 OK
-- Body: Service
+- Body:
+    - id: integer
+    - name: string
+    - description: string | null
+    - createdAt: string (iso timestamp)
+    - updatedAt: string (iso timestamp)
 
 **Error Responses:**
 - 401: Auth token not provided or invalid
@@ -153,7 +172,12 @@ POST /services/:serviceId/versions
 
 **Success Response:**
 - Status: 201 Created
-- Body: Version
+- Body:
+    - id: integer
+    - version: string
+    - notes: string | null
+    - createdAt: string (iso timestamp)
+    - updatedAt: string (iso timestamp)
 
 **Error Responses:**
 - 400: invalid request body
@@ -175,7 +199,12 @@ PATCH /services/:serviceId/versions/:versionId
 
 **Success Response:**
 - Status: 200 OK
-- Body: Version
+- Body:
+    - id: integer
+    - version: string
+    - notes: string | null
+    - createdAt: string (iso timestamp)
+    - updatedAt: string (iso timestamp)
 
 **Error Responses:**
 - 400: invalid request body
@@ -206,14 +235,21 @@ GET /services/:serviceId/versions
 **Headers:**
 - Authorization: bearer token, JWT (carries userId and tenantId)
 
+**Query Params:**
+- page: integer
+- perPage: integer
+
+Default ordering: `createdAt DESC`, then `id DESC`
+
 **Success Response:**
 - Status: 200 OK
-- Params:
-    - page: integer
-    - perPage: integer
-- Default ordering: `createdAt DESC`, then `id DESC`
 - Body:
     - data: Version[]
+        - id: integer
+        - version: string
+        - notes: string | null
+        - createdAt: string (iso timestamp)
+        - updatedAt: string (iso timestamp)
     - total: integer
     - totalPages: integer
     - next: string | null
@@ -232,22 +268,22 @@ GET /services
 **Headers:**
 - Authorization: bearer token, JWT (carries userId and tenantId)
 
+**Query Params:**
+- page: integer
+- perPage: integer
+- sortBy: `name` | `createdAt` | `versionCount`, optionally prefixed with `-` for descending order (for example, `-name`)
+- search: string
+- versionCountFrom: int
+- versionCountTo: int
+- createdAtFrom: string (iso timestamp)
+- createdAtTo: string (iso timestamp)
+- latestVersionCreatedAtFrom: string (iso timestamp)
+- latestVersionCreatedAtTo: string (iso timestamp)
+
+Default ordering: `createdAt DESC`, then `id DESC`. All sorting uses `id` as a final tie-breaker. `versionCount` is calculated from the Version records rather than stored on Service.
+
 **Success Response:**
 - Status: 200 OK
-- Params:
-    - page: integer
-    - perPage: integer
-    - sortBy: `name` | `createdAt` | `versionCount`, optionally prefixed with `-` for descending order (for example, `-name`)
-    - search: string
-    - versionCountFrom: int
-    - versionCountTo: int
-    - createdAtFrom: string (iso timestamp)
-    - createdAtTo: string (iso timestamp)
-    - latestVersionCreatedAtFrom: string (iso timestamp)
-    - latestVersionCreatedAtTo: string (iso timestamp)
-- Default ordering: `createdAt DESC`, then `id DESC`
-- All sorting uses `id` as a final tie-breaker
-- `versionCount` is calculated from the Version records rather than stored on Service
 - Body:
     - data: ListService[]
         - id
@@ -262,67 +298,40 @@ GET /services
 - 400: invalid query params
 - 401: Auth token not provided or invalid
 
+This endpoint returns the data needed for the dashboard cards, including the version count. Service details and the actual version records have separate endpoints so the list response stays small.
+
+Version counts and latest-version dates are calculated from Version records. The query joins one grouped version aggregate instead of loading versions or running an N+1 query. This favors consistent data and simple writes. At a much larger scale, a stored counter or summary table might be worth considering.
+
+Page-based pagination matches the UI and is simple to use. The stable ID tie-breaker makes ordering deterministic. Offset pagination and total counts can become expensive on large or deep result sets, where cursor pagination may be a better fit.
+
+Search uses `ILIKE '%term%'` because substring matching feels right for this UI. A normal B-tree index won't help much with that pattern. If it becomes slow, a PostgreSQL trigram index would preserve the same behavior. Full-text search would make more sense if we wanted word-based matching instead.
+
 ## Application structure
 
-We'll organize the code by feature. Versions stay under `services/` because clients only access them through a service.
+The code is organized by feature. Versions stay under `services/` because clients only access them through a service.
 
 ```text
 database/
-├── data-source.ts
 ├── migrations/
 └── seeds/
-    ├── data.ts
-    └── seed.ts
 src/
-├── main.ts
+├── auth/
+├── common/
+├── config/
+├── services/
+│   ├── dto/
+│   ├── entities/
+│   ├── queries/
+│   ├── services.module.ts
+│   ├── services.controller.ts
+│   ├── services.service.ts
+│   ├── versions.controller.ts
+│   └── versions.service.ts
 ├── app.module.ts
 ├── configure-app.ts
-├── auth/
-│   ├── dto/
-│   │   ├── requests/
-│   │   │   └── create-demo-token.dto.ts
-│   │   └── responses/
-│   │       └── demo-token.dto.ts
-│   ├── auth.controller.ts
-│   ├── auth.module.ts
-│   ├── auth.service.ts
-│   ├── authenticated-user.interface.ts
-│   ├── current-user.decorator.ts
-│   └── jwt-auth.guard.ts
-├── common/
-│   ├── database/
-│   │   └── postgres-error-code.ts
-│   └── pagination/
-│       ├── paginated-response.dto.ts
-│       └── pagination.ts
-├── config/
-│   └── typeorm.config.ts
-└── services/
-    ├── dto/
-    │   ├── requests/
-    │   │   ├── create-service.dto.ts
-    │   │   ├── create-version.dto.ts
-    │   │   ├── list-services-query.dto.ts
-    │   │   ├── list-versions-query.dto.ts
-    │   │   ├── update-service.dto.ts
-    │   │   └── update-version.dto.ts
-    │   └── responses/
-    │       ├── service-detail.dto.ts
-    │       ├── service-list-item.dto.ts
-    │       └── version.dto.ts
-    ├── entities/
-    │   ├── service.entity.ts
-    │   └── version.entity.ts
-    ├── queries/
-    │   └── list-services.query.ts
-    ├── services.controller.ts
-    ├── services.module.ts
-    ├── services.service.ts
-    ├── versions.controller.ts
-    └── versions.service.ts
+└── main.ts
 test/
-├── app.e2e-spec.ts
-└── jest-e2e.json
+└── app.e2e-spec.ts
 ```
 
 ### Root module
@@ -339,14 +348,26 @@ A real login flow would add a `users/` feature to store and look up users. Auth 
 
 ### Database
 
-The top-level `database/` folder contains the migration CLI entry point and generated migrations. `data-source.ts` exports the `DataSource` required by the CLI, which does not start Nest or use its dependency injection. The runtime options factory stays under `src/config/` because it is part of the Nest application.
+The top-level `database/` folder contains the TypeORM CLI data source, migrations and seeds. The runtime TypeORM config stays under `src/config/` since Nest loads it.
 
 ### Services
 
-The `services/` folder contains the entities, DTOs, controllers, and logic for services and versions. Versions use a separate controller and service so their list, create, update, and delete operations have a clear home. They remain in `ServicesModule` because clients only access versions through a service.
+The `services/` folder contains the entities, DTOs, controllers, and logic for services and versions. Versions use a separate controller and service so their list, create, update, and delete operations have a clear home. They remain in `ServicesModule` because a version is always accessed through a service and doesn't have an independent lifecycle. A separate `VersionsModule` would add another module boundary without giving us much right now. If versions later gain independent endpoints or responsibilities, splitting them into their own module would make more sense.
 
-`ServicesService` uses the service repository, and `VersionsService` uses the version repository. `VersionsService` delegates tenant-scoped parent service lookups to `ServicesService` so that access rules are not repeated. We won't add repository wrappers unless query logic starts repeating. The controllers translate API pages into offsets and limits, then build pagination metadata and links with shared helpers. The services only receive the database pagination values. The service list query calculates version counts and latest-version dates in the database instead of loading versions one service at a time. Every public operation receives a tenant ID explicitly.
+`ServicesService` uses the service repository and `VersionsService` uses the version repository. `VersionsService` delegates parent lookups to `ServicesService` so the tenant checks aren't repeated. The service list has a separate query class since its filtering and aggregation are more complex. We won't add repository wrappers unless query logic starts repeating.
+
+Controllers handle page numbers and build pagination links. Services just receive an offset and limit and return the data and total. Every public operation receives a tenant ID explicitly.
 
 ### Tests
 
-Unit tests sit next to the code they cover. A focused end-to-end suite under `test/` starts the real Nest application in-process and exercises it through Supertest against PostgreSQL. It covers the main read and write flows, authentication, validation, tenant isolation, pagination, and key database constraints without repeating every unit-level edge case.
+Unit tests sit next to the code they cover. They cover authentication, service behavior, pagination and the service-list query.
+
+The E2E tests start the real Nest app and call it through Supertest against PostgreSQL. They cover the main read and write flows, auth, validation, tenant isolation, pagination and the important database constraints.
+
+## Things we'd revisit for production
+
+- Replace the demo token endpoint with a trusted auth service or identity provider
+- Add roles and permissions if tenant membership isn't enough
+- Decide on audit history, archival and soft deletion requirements
+- Benchmark the list query with production-shaped data before denormalizing counts or changing pagination
+- Add rate limiting, observability, OpenAPI docs and deployment configuration

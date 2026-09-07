@@ -1,73 +1,62 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# Service Catalog
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This app implements the requirements to support a Service Catalog, as outlined in [exercise.md](./docs/exercise.md). All the base requirements have been met, following the requested tech stack (and versions). The extra requirements have been met as outlined:
+- **Complete CRUD:** Implemented for both Services and Versions, with hard deletes and request validation
+- **Testing:** Unit tests for authentication, services, queries, and pagination, along with E2E tests for the whole application
+- **Authentication:** Endpoints require and validate a JWT provided as a bearer token. To avoid implementing a full-blown user authentication module, a "demo" authentication endpoint was added. This endpoint generates a signed JWT with the `userId` and `tenantId` provided.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+For information about assumptions and decisions made, full API contracts, and the application architecture, see [design.md](./docs/design.md).
 
-## Description
+## Requirements
+- [pnpm](https://pnpm.io/)
+- [Docker and Docker Compose](https://www.docker.com/products/docker-desktop/)
+- [Node.js 20](https://nodejs.org/en/download)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Installation
-
+## Dev commands
+Install dependencies (package manager used was pnpm):
 ```bash
-$ pnpm install
+pnpm install
 ```
 
-## Running the app
-
+Copy the example env file into `.env`. Optional: update `JWT_SECRET` with a different value.
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+cp .env.example .env
 ```
 
-## Test
-
+Initialize the database. This starts the PostgreSQL container, runs the migrations, and seeds demo services and versions for tenants 1 and 2.
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+pnpm db:init
 ```
 
-## Support
+Run the dev server:
+```bash
+pnpm start:dev
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+The API is available at `http://localhost:3000`.
 
-## Stay in touch
+### Try the API
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Generate a demo token:
+```bash
+curl -X POST http://localhost:3000/auth/demo-token \
+  -H 'Content-Type: application/json' \
+  -d '{"userId": 1, "tenantId": 1}'
+```
 
-## License
+Use the returned `accessToken` to list services:
+```bash
+curl 'http://localhost:3000/services?search=api&sortBy=-versionCount' \
+  -H 'Authorization: Bearer <accessToken>'
+```
 
-Nest is [MIT licensed](LICENSE).
+Run the tests:
+```bash
+pnpm test # unit
+pnpm test:e2e # end-to-end, requires DB setup above
+```
+
+Stop the database when finished:
+```bash
+pnpm db:stop
+```
